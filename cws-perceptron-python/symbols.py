@@ -16,7 +16,9 @@ EOS = "</s>"
 
 BOT = "TYPE_BOS"
 EOT = "TYPE_EOT"
-
+ENG_TYPE = "TYPE_ENG"
 
 INF = float("inf")
 NEG_INF = float("-inf")
+
+LEXICON_MATCH_MAX_LENGTH = len(u"中华人民共和国")

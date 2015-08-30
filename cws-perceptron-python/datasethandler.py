@@ -4,6 +4,8 @@ import traceback
 import logging
 import sys
 
+from wsatom_char import WSAtomTranslator , WSAtom
+
 class DatasetHandler(object) : 
     @staticmethod
     def get_file_encoding(f) :
@@ -43,8 +45,14 @@ class DatasetHandler(object) :
             tf : file object of training data
     
         Returns :
-            data_lines : lines of dataset , each line is also a list , every element is a word 
+            data_lines : lines of dataset , each line is also a list , every element is also a list !
+                        the most inner element is WSAtom .
+                        => [ [ [ "like" , "我" , ... ] , ["一" , "样"] ,...  ] ]
+                        what is this ? -> the most inner list , is same as the N-grams of chars ! so as for every word , it is represented by
+                                          a list of WSAtom . upper list is the sentence , the most outer is the list of sentence
+                        Why use WSAtom ? -> because we want a English word as a `single representation` instead of `list of letters` ! 
         '''
+        logging.info("reading training data .")
         if type(tf) != file :
             try :
                 tf = open(tf)
@@ -53,6 +61,7 @@ class DatasetHandler(object) :
                 exit(1)
         data_lines = []
         encoding = DatasetHandler.get_file_encoding(tf)
+        WSAtom.set_encoding(encoding)
         for line in tf :
             line = line.strip()
             if len(line) == 0 : 
@@ -64,6 +73,9 @@ class DatasetHandler(object) :
                 logging.warning("decoding dataset error : %s " %(line))
                 continue
             uline_parts = uline.split()
-            data_lines.append(uline_parts)
+            atom_list = []
+            for uline_part in uline_parts :
+                atom_list.append(WSAtomTranslator.trans_unicode_list2atom_gram_list(uline_part))
+            data_lines.append(atom_list)
         logging.info("%d lines read done ." %(len(data_lines)))
         return data_lines

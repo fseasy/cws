@@ -2,8 +2,12 @@
 
 import logging
 from collections import Counter
+
 from datasethandler import DatasetHandler
-from symbols import INF , NEG_INF
+from symbols import INF , NEG_INF , TAG_B , TAG_M , TAG_E , TAG_S , TAG_NAME_TRANS 
+from wsatom_char import WSAtomTranslator
+from extractor import Extractor
+from model import Model
 
 logger = logging.getLogger("segmentor")
 DEBUG=True
@@ -15,18 +19,29 @@ class Segmentor(object) :
         self.inner_lexicon = None 
         self.training_unigrams_data = None
         self.training_tags_data = None
-
+        self.extractor = None
+        self.model = None
 
     def train(self,training_f) :
         self.raw_training_data = DatasetHandler.read_training_data(training_f)
-        self.build_inner_lexicon(threshold=0.9)
-        
-    def build_inner_lexicon(self , threshold=1.) :
+        self._build_inner_lexicon(threshold=0.9)
+        self._processing_raw_training_data2unigrams_and_tags()
+        self.extractor = Extractor(self.inner_lexicon)
+        self._build_train_feature_space()
+    
+    def _build_train_feature_space(self) :
+        if self.extractor is None or self.model is None  :
+            return
+
+
+    def _build_inner_lexicon(self , threshold=1.) :
         if self.raw_training_data is None :
             return
         words_counter = Counter()
         for raw_instance in self.raw_training_data :
-            words_counter.update(raw_instance)
+            unicode_instance = [ WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_instance_gram_list) 
+                                 for atom_instance_gram_list in raw_instance ]
+            words_counter.update(unicode_instance)
         total_freq = sum(words_counter.viewvalues())
         lexicon_list = []
         if threshold < 1. :
@@ -53,37 +68,47 @@ class Segmentor(object) :
             logger.debug("lexicon count : " + str(len(lexicon_list)))
         return dict.fromkeys(lexicon_list) #! to make it more efficient 
     
-    def processing_raw_training_data2unigrams_and_tags(self) :
+    def _processing_raw_training_data2unigrams_and_tags(self) :
         '''
-        from lines(read from training data file )to trainning data(ws needed)
-        Args :
-            lines : list , each one is a str consisting of many words , unicode encoding
-    
-        Returns :
-            unigram_line_list : list , elements is also a list . the most inner element is the unigram . => [ [unigram , unigram , ...] , ...  ] 
+        from lines data(WSAtom wrapped )to trainning data(ws needed)
+        [ inner class function ]
+        logic :
+            we process self.raw_training_data . 
+            and set self.training_unigrams_data , self.training_tags_data
+            unigram_line_list : list , elements is also a list . the most inner element is the unigram . 
+                                => [ [WSAtom(unigram) , WSAtom(unigram) , ...] , ...  ] 
             tags_list : list of list . most inner element is tag . => [ [tag_b , tag_m , ...] , ...]
     
         '''
-        def word2tags(word) :
-            wordlen = len(word)
-            tags = [] 
-            if wordlen == 1 :
-                tags.append(TAG_S)
-            elif wordlen >= 2 :
-                tags.append(TAG_B)
-                for i in range(1 , wordlen - 1) :
-                    tags.append(TAG_M)
-                tags.append(TAG_E)  
-            return tags 
+        if self.raw_training_data is None : return
         self.training_unigrams_data = []
         self.training_tags_data = []
-        for words_list in self.raw_training_data :
+        for sentence in self.raw_training_data :
             tags = []
             unigram_line = []
-            for word in words_list :
-                partial_tags = word2tags(word)
+            for atom_ngram in sentence :
+                partial_tags = Segmentor.__innerfunc__word2tags(atom_ngram)
                 tags.extend(partial_tags)
-                unigram_line.extend(word) # str is also iterable as for each unigram .  so unigram is added .
+                unigram_line.extend(atom_ngram) # atom_ngram is the list of WSAtom. so WSAtom(unigram) is added .
             self.training_tags_data.append(tags)
             self.training_unigrams_data.append(unigram_line)
+        if DEBUG :
+            logger.debug("the 1st line : %s" %( u" ".join(
+                         [ atom.get_combined_unicode_list() for atom in self.training_unigrams_data[0]] ).encode('utf8') ))
+            logger.debug("the 1st tag list : " + " ".join([ TAG_NAME_TRANS[tag] for tag in self.training_tags_data[0] ]))
+            logger.debug("the 1st origin seg line : " + " ".join(
+                         [WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_list).encode("utf8") 
+                         for atom_list in self.raw_training_data[0]]))
+    @staticmethod
+    def __innerfunc__word2tags(word) :
+        wordlen = len(word)
+        tags = [] 
+        if wordlen == 1 :
+            tags.append(TAG_S)
+        elif wordlen >= 2 :
+            tags.append(TAG_B)
+            for i in range(1 , wordlen - 1) :
+                tags.append(TAG_M)
+            tags.append(TAG_E)  
+        return tags
 
