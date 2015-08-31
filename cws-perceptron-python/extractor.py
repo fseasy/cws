@@ -27,15 +27,15 @@ class Extractor(object) :
         match_state = self.build_lexicon_match_state(instance)
         for pos in range(instance_len) :
             #! unigram word feature
-            W_cur = instance[pos]
-            W_pre2 = pos - 2 < 0 ? BOS : str(instance[pos-2])
-            W_pre1 = pos - 1 < 0 ? BOS : str(instance[pos-1])
-            W_nxt1 = pos + 1 > instance_len - 1 ? EOS : str(intance[pos + 1])
-            W_nxt2 = pos + 2 > instance_len - 1 ? EOS : str(instance[pos + 2])
+            W_cur = str(instance[pos])
+            W_pre2 = str(instance[pos-2]) if pos - 2 >= 0 else BOS
+            W_pre1 = str(instance[pos-1]) if pos - 1 >= 0 else BOS 
+            W_nxt1 = str(instance[pos+1]) if pos + 1 < instance_len else EOS 
+            W_nxt2 = str(instance[pos+2]) if pos + 2 < instance_len else EOS 
             #! type feature
             T_cur = instance[pos].get_type_str()
-            T_pre1 = pos - 1 < 0 ? BOT : instance[pos-1].get_type_str()
-            T_nxt1 = pos + 1 > instance_len - 1 ? EOT ? instance[pos + 1].get_type_str()
+            T_pre1 = instance[pos-1].get_type_str() if pos - 1 >= 0 else BOT
+            T_nxt1 = instance[pos+1].get_type_str() if pos + 1 < instance_len else EOT
             #! lexicon feature
             L_head = str(match_state[pos][0])
             L_middle = str(match_state[pos][1])

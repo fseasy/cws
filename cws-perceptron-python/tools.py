@@ -1,7 +1,7 @@
 #coding=utf-8
 
 import unicodedata
-
+from collections import Counter
 class Tools(object) :
     @staticmethod
     def get_unichr_category(unichr_val) :
@@ -26,3 +26,30 @@ class Tools(object) :
     @staticmethod
     def get_unichr_type(unichr_val) :
         return Tools.get_unichr_category(unichr_val)
+
+    @staticmethod
+    def sparse_vector_dot(v1 , v2) :
+        assert(isinstance(v1 , dict) and isinstance(v2 , dict))
+        l1 = len(v1)
+        l2 = len(v2)
+        if l1 < l2 :
+            small_v = v1 
+            big_v = v2
+        else :
+            small_v = v2
+            big_v = v1
+        rst = 0
+        for k in small_v :
+            if k not in big_v :
+                continue
+            val_1 = small_v[k]
+            val_2 = big_v[k]
+            rst += val_1 * val_2
+        return rst
+
+    @staticmethod
+    def sparse_vector_add(v1 , v2) :
+        assert(isinstance(v1) and isinstance(v2))
+        rst = Counter(v1)
+        rst.update(v2)
+        return dict(rst)

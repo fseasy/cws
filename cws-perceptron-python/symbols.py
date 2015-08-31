@@ -22,3 +22,5 @@ INF = float("inf")
 NEG_INF = float("-inf")
 
 LEXICON_MATCH_MAX_LENGTH = len(u"中华人民共和国")
+
+DEBUG = True

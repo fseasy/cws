@@ -4,13 +4,13 @@ import logging
 from collections import Counter
 
 from datasethandler import DatasetHandler
-from symbols import INF , NEG_INF , TAG_B , TAG_M , TAG_E , TAG_S , TAG_NAME_TRANS 
+from symbols import INF , NEG_INF , TAG_B , TAG_M , TAG_E , TAG_S , TAG_NAME_TRANS , DEBUG
 from wsatom_char import WSAtomTranslator
 from extractor import Extractor
 from model import Model
+from constrain import Constrain
 
 logger = logging.getLogger("segmentor")
-DEBUG=True
 
 class Segmentor(object) :
 
@@ -19,23 +19,75 @@ class Segmentor(object) :
         self.inner_lexicon = None 
         self.training_unigrams_data = None
         self.training_tags_data = None
+        
+        self.max_iter = 5
+
         self.extractor = None
+        self.constrain = None
         self.model = None
 
-    def train(self,training_f) :
+    def train(self,training_f,max_iter=None) :
+        self._set_max_iter(max_iter)
         self.raw_training_data = DatasetHandler.read_training_data(training_f)
         self._build_inner_lexicon(threshold=0.9)
         self._processing_raw_training_data2unigrams_and_tags()
-        self.extractor = Extractor(self.inner_lexicon)
-        self._build_train_feature_space()
-    
-    def _build_train_feature_space(self) :
-        if self.extractor is None or self.model is None  :
-            return
+        self._build_extractor()
+        self._build_constrain()
+        self._build_training_model()
 
+    def _training_processing(self) :
+        '''
+        Training
+        '''
+        logging.info("do training processing .")
+        if self.training_unigrams_data is None or self.model is None or self.extractor is None :
+            logging.error("failed!")
+            return
+        instance_num = len(self.training_unigrams_data)
+        for  in  :
+            
+    def _set_max_iter(self , max_iter) :
+        if max_iter is None or type(max_iter) is not int or max_iter < 1 :
+            logging.warning("Max iteration number is not set or in valid state .")
+            logging.info("set it to default value .")
+        else :
+            self.max_iter = max_iter
+        logging.info("Max iteration is %d ." %(self.max_iter))
+
+    def _build_extractor(self) :
+        self.extractor = Extractor(self.inner_lexicon)
+    
+    def _build_constrain(self) :
+        self.constrain = Constrain()
+
+    def _build_training_model(self) :
+        '''
+        init a empty model , build model emit feature space , build model label space , build model weight
+        '''
+        #! Init empty model
+        logging.info("Initialize an empty model")
+        self.model = Model()
+        self.model.init_empty_model()
+        #! build emit feature space
+        logging.info("extract all training instance and build model feature space .")
+        if self.extractor is None or self.model is None or self.training_unigrams_data is None :
+            logging.error("failed!")
+            return
+        for atom_line in self.training_unigrams_data :
+            emit_feature_list = self.extractor.extract_emit_features(atom_line)
+            self.model.add_emit_feature_list2feature_space(emit_feature_list)
+        #! build label space
+        logging.info("add labels to model label space .")
+        self.model.add_labels2label_space( (TAG_B , TAG_M , TAG_E , TAG_S) )
+        #! build feature tans mat and weight
+        logging.info("Inlitialize feature transition and weight space .")
+        self.model.build_up_model()
+        
 
     def _build_inner_lexicon(self , threshold=1.) :
+        logging.info("build inner lexicon from training data .")
         if self.raw_training_data is None :
+            logging.error('failed')
             return
         words_counter = Counter()
         for raw_instance in self.raw_training_data :
@@ -63,9 +115,23 @@ class Segmentor(object) :
                     break
         else :
             lexicon_list = words_counter.keys()
+        logging.info( "inner lexicon info : %d/%d" %(len(words_counter) , len(lexicon_list)) )
+        
         if DEBUG :
+            freq_in_lexicon = 0
+            min_freq = INF
+            for word in lexicon_list :
+                word_freq = words_counter[word]
+                freq_in_lexicon += word_freq
+                if word_freq > min_freq :
+                    min_freq = word_freq
             logger.debug("origin words count : " + str(len(words_counter)))
             logger.debug("lexicon count : " + str(len(lexicon_list)))
+            logger.debug( ("thredhold num is %d , actually total freqency in lexicon is %d(total frequency of all words : %d ),"
+                           "minimun frequency in lexicon is %d , frequency ratio is %.2f%% , word count ratio is %.2f%%" 
+                            %( threshold_num , freq_in_lexicon , total_freq , min_freq , 
+                            freq_in_lexicon / float(total_freq) , len(lexicon_list) / float(len(words_counter)) )) 
+                        )
         return dict.fromkeys(lexicon_list) #! to make it more efficient 
     
     def _processing_raw_training_data2unigrams_and_tags(self) :
@@ -80,7 +146,10 @@ class Segmentor(object) :
             tags_list : list of list . most inner element is tag . => [ [tag_b , tag_m , ...] , ...]
     
         '''
-        if self.raw_training_data is None : return
+        logging.info("processing raw training data to unigrams and tags .")
+        if self.raw_training_data is None : 
+            logging.error("failed!")
+            return
         self.training_unigrams_data = []
         self.training_tags_data = []
         for sentence in self.raw_training_data :
@@ -99,6 +168,7 @@ class Segmentor(object) :
             logger.debug("the 1st origin seg line : " + " ".join(
                          [WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_list).encode("utf8") 
                          for atom_list in self.raw_training_data[0]]))
+    
     @staticmethod
     def __innerfunc__word2tags(word) :
         wordlen = len(word)
