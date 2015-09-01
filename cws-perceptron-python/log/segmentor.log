@@ -1,6 +1,7 @@
-2015-08-30 16:46:11,191 main.py ERROR :Test segmentor logger
-2015-08-30 16:46:11,224 segmentor.py DEBUG :origin words count : 703
-2015-08-30 16:46:11,224 segmentor.py DEBUG :lexicon count : 317
-2015-08-30 16:46:11,226 segmentor.py DEBUG :the 1st line : 迈 向 充 满 希 望 的 新 世 纪 — — 一 九 九 八 年 新 年 讲 话 （ 附 图 片 １ 张 ）
-2015-08-30 16:46:11,227 segmentor.py DEBUG :the 1st tag list : B E B E B E S S B E B E B M M M E B E B E S S B E S S S
-2015-08-30 16:46:11,227 segmentor.py DEBUG :the 1st origin seg line : 迈向 充满 希望 的 新 世纪 —— 一九九八年 新年 讲话 （ 附 图片 １ 张 ）
+2015-09-01 16:22:58,560 main.py ERROR :Test segmentor logger
+2015-09-01 16:22:58,614 segmentor.py DEBUG :origin words count : 703
+2015-09-01 16:22:58,614 segmentor.py DEBUG :lexicon count : 317
+2015-09-01 16:22:58,614 segmentor.py DEBUG :thredhold num is 1881 , actually total freqency in lexicon is 1704(total frequency of all words : 2090 ),minimun frequency in lexicon is 2 , frequency ratio is 0.82% , word count ratio is 0.45%
+2015-09-01 16:22:58,619 segmentor.py DEBUG :the 1st line : 迈 向 充 满 希 望 的 新 世 纪 — — 一 九 九 八 年 新 年 讲 话 （ 附 图 片 １ 张 ）
+2015-09-01 16:22:58,619 segmentor.py DEBUG :the 1st tag list : B E B E B E S S B E B E B M M M E B E B E S S B E S S S
+2015-09-01 16:22:58,619 segmentor.py DEBUG :the 1st origin seg line : 迈向 充满 希望 的 新 世纪 —— 一九九八年 新年 讲话 （ 附 图片 １ 张 ）

@@ -9,6 +9,7 @@ from wsatom_char import WSAtomTranslator
 from extractor import Extractor
 from model import Model
 from constrain import Constrain
+from decoder import Decoder
 
 logger = logging.getLogger("segmentor")
 
@@ -25,6 +26,7 @@ class Segmentor(object) :
         self.extractor = None
         self.constrain = None
         self.model = None
+        self.decoder = None
 
     def train(self,training_f,max_iter=None) :
         self._set_max_iter(max_iter)
@@ -33,7 +35,9 @@ class Segmentor(object) :
         self._processing_raw_training_data2unigrams_and_tags()
         self._build_extractor()
         self._build_constrain()
+        self._build_decoder()
         self._build_training_model()
+        self._training_processing()
 
     def _training_processing(self) :
         '''
@@ -44,8 +48,26 @@ class Segmentor(object) :
             logging.error("failed!")
             return
         instance_num = len(self.training_unigrams_data)
-        for  in  :
-            
+        processing_print_interval = instance_num / 10 
+        for ite in range(self.max_iter) :
+            logging.info("training iteration %d ." %(ite + 1))
+            for instance_id in range(instance_num) :
+                instance = self.training_unigrams_data[instance_id]
+                tags = self.training_tags_data[instance_id]
+                predicted_tags = self.decoder.decode(self.extractor , self.model , self.constrain , instance )
+                assert(len(tags) == len(predicted_tags))
+                gold_features = self.decoder.calculate_label_sequence_feature(tags , instance , self.extractor , self.model)
+                predicted_features = self.decoder.get_current_predict_label_sequence_feature()
+                self.model.update_model(gold_features , predicted_features)
+                #logging
+                if ( instance_id + 1 ) % processing_print_interval == 0 :
+                    current_ite_percent = ( instance_id + 1 ) / processing_print_interval * 10 
+                    logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_id + 1 ,
+                                  current_ite_percent , current_ite_percent / self.max_iter ))
+            logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_num ,
+                          100 , 100 / self.max_iter ))
+        logging.info("Training done.")
+
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :
             logging.warning("Max iteration number is not set or in valid state .")
@@ -59,6 +81,9 @@ class Segmentor(object) :
     
     def _build_constrain(self) :
         self.constrain = Constrain()
+
+    def _build_decoder(self) :
+        self.decoder = Decoder()
 
     def _build_training_model(self) :
         '''
@@ -115,7 +140,7 @@ class Segmentor(object) :
                     break
         else :
             lexicon_list = words_counter.keys()
-        logging.info( "inner lexicon info : %d/%d" %(len(words_counter) , len(lexicon_list)) )
+        logging.info( "inner lexicon info : %d/%d" %( len(lexicon_list) , len(words_counter) )  )
         
         if DEBUG :
             freq_in_lexicon = 0
@@ -123,16 +148,16 @@ class Segmentor(object) :
             for word in lexicon_list :
                 word_freq = words_counter[word]
                 freq_in_lexicon += word_freq
-                if word_freq > min_freq :
+                if word_freq < min_freq :
                     min_freq = word_freq
             logger.debug("origin words count : " + str(len(words_counter)))
             logger.debug("lexicon count : " + str(len(lexicon_list)))
             logger.debug( ("thredhold num is %d , actually total freqency in lexicon is %d(total frequency of all words : %d ),"
-                           "minimun frequency in lexicon is %d , frequency ratio is %.2f%% , word count ratio is %.2f%%" 
-                            %( threshold_num , freq_in_lexicon , total_freq , min_freq , 
+                           "minimun frequency in lexicon is %d , frequency ratio is %.2f%% , word count ratio is %.2f%%" %( 
+                            threshold_num , freq_in_lexicon , total_freq , min_freq , 
                             freq_in_lexicon / float(total_freq) , len(lexicon_list) / float(len(words_counter)) )) 
                         )
-        return dict.fromkeys(lexicon_list) #! to make it more efficient 
+        self.inner_lexicon =  dict.fromkeys(lexicon_list) #! to make it more efficient 
     
     def _processing_raw_training_data2unigrams_and_tags(self) :
         '''

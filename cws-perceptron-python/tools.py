@@ -11,7 +11,7 @@ class Tools(object) :
                            like 'Lu' , 'L'(first char) standands for the char type , here means 'Letter' , 'u'(second char)stands for 'uppercase'
         so , we use the first letter as the type feature.
         '''
-        category = unicodedata.category(unichr_val) #! return the unichr's category
+        return unicodedata.category(unichr_val) #! return the unichr's category
     
     @staticmethod
     def is_unicode_number(unichr_val) :
@@ -48,8 +48,25 @@ class Tools(object) :
         return rst
 
     @staticmethod
-    def sparse_vector_add(v1 , v2) :
-        assert(isinstance(v1) and isinstance(v2))
-        rst = Counter(v1)
-        rst.update(v2)
+    def sparse_vector_add(*args) :
+        rst = Counter()
+        for v in args :
+            assert(isinstance(v , dict))
+            rst.update(v)
+        return dict(rst)
+    
+    def spase_vector_add_in_place(augend_v , addend_v) :
+        keys = list(set(augend_v.keys() + addend_v.keys()))
+        for k in keys :
+            k_in_augend = k in augend_v
+            k_in_addend = k in addend_v
+            if k_in_augend and k_in_addend :
+                augend_v[k] += addend_v[k]
+            elif not k_in_augend and k_in_addend :
+                augend_v[k] = addend_v[k]
+    
+    @staticmethod
+    def sparse_vector_sub( minuend_v , subtrahend_v) :
+        rst = Counter(minuend_v)
+        rst.subtract(subtrahend_v)
         return dict(rst)

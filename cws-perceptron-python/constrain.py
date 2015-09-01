@@ -1,7 +1,8 @@
 #coding=utf-8
 
 from symbols import TAG_B , TAG_M , TAG_E , TAG_S
-from models import Model.BOS_LABEL_REP as BOS_LABEL_REP
+from model import Model
+
 class Constrain(object) :
 
     def __init__(self) :
@@ -24,7 +25,7 @@ class Constrain(object) :
 
     def get_possible_previous_label_at_current_label(self , pos , label) :
         if pos == 0 :
-            return ( BOS_LABEL_REP , )
+            return ( Model.BOS_LABEL_REP , )
         else :
             if label in (TAG_B , TAG_S) :
                 return ( TAG_E , TAG_S )

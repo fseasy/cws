@@ -3,7 +3,7 @@
 import unicodedata
 from symbols import BOT , EOT , BOS , EOS , LEXICON_MATCH_MAX_LENGTH  
 from tools import Tools
-
+from wsatom_char import WSAtomTranslator
 class Extractor(object) :
     
     def __init__(self,lexicon) :
@@ -57,9 +57,9 @@ class Extractor(object) :
         instance_len = len(instance)
         match_state = [ [ 1 ] * 3 for i in range(instance_len) ] #! minimum length is 1
         for i in range(instance_len) :
-            j = min( i + LEXICON_MATCH_MAX_LENGTH , instance_len )
+            j = min( i + LEXICON_MATCH_MAX_LENGTH , instance_len - 1 )
             while j > i :
-                test_word = WSAtomTranslator.trans_atom_gram_list2unicode_line(instance[i:j])
+                test_word = WSAtomTranslator.trans_atom_gram_list2unicode_line(instance[i:j+1])
                 if test_word in self.lexicon :
                     word_len = j - i + 1
                     #! max length as the word head 
@@ -68,7 +68,7 @@ class Extractor(object) :
                     for interval in range(i+1 , j) :
                         match_state[interval][1] = max( match_state[interval][1] , word_len )
                     #! max length as the word end
-                    match_state[j][2] = max( match_state[i][2] , word_len )
+                    match_state[j][2] = max( match_state[j][2] , word_len )
                     break
                 j -= 1
 

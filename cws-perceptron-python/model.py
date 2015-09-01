@@ -1,6 +1,9 @@
 #coding=utf-8
 
+import logging
+
 from symbols import DEBUG
+from tools import Tools
 
 class Model(object) :
     BOS_LABEL_REP = None
@@ -33,12 +36,12 @@ class Model(object) :
         self.idx2label = []
 
     def add_emit_feature_list2feature_space(self , features_list ) :
-    '''
-    add the emit feature to feature space
-    Args :
-        features_list : list of list . most inner element is emit feature , a str like "1=我" 
-                        => [ ["1=我" , "2=BOS" , ...] , ...  ]
-    '''
+        '''
+        add the emit feature to feature space
+        Args :
+            features_list : list of list . most inner element is emit feature , a str like "1=我" 
+                            => [ ["1=我" , "2=BOS" , ...] , ...  ]
+        '''
         for features in features_list :
             for emit_feature in features :
                 if emit_feature not in self.emit_feature_space :
@@ -59,7 +62,33 @@ class Model(object) :
         self._build_trans_feature_trans()
         self._build_empty_weight_and_relevant()
 
-
+    def update_model(self , gold_feature , predict_feature) :
+        '''
+        Update model
+        1. W += (  gold_feature - predict_feature )
+        2. W_sum += W ( fake )
+        3. W_time update
+        
+        Args :
+            gold_feature : dict (sparse vector)
+            predict_feature : dict (sparse vector)
+        '''
+        self._increase_time()
+        diff = Tools.sparse_vector_sub(gold_feature , predict_feature)
+        for f_idx in diff :
+            assert(isinstance(f_idx , int) and f_idx < self.W_size)
+            update_value = diff[f_idx]
+            current_value = self.W[f_idx] if f_idx in self.W else 0
+            #! update W
+            self.W[f_idx] = current_value + update_value 
+            #! update W_sum
+            previous_update_time = self.W_time[f_idx] 
+            keeping_time = self.time_now - previous_update_time
+            current_sum_value = self.W_sum[f_idx] if f_idx in self.W_sum else 0
+            self.W_sum[f_idx] = current_sum_value + keeping_time * current_value + update_value 
+            #! update W_time
+            self.W_time[f_idx] = self.time_now
+        
     def _build_emit_feature_trans(self) :
         '''
         trans : (emit_feature/idx , label/idx ) -> instance feature idx (corresponding weight feature idx)
@@ -99,7 +128,7 @@ class Model(object) :
             return
         self.trans_feature_trans = [ [ 0 ] * self.label_num for n in range(self.label_num + 1)]
         offset = self.emit_feature_num * self.label_num 
-        for pre_label_idx in range(self.label_mum) :
+        for pre_label_idx in range(self.label_num) :
             for to_label_idx in range(self.label_num) :
                 self.trans_feature_trans[pre_label_idx][to_label_idx] = offset + pre_label_idx * self.label_num + to_label_idx
         #! calculate the LBOS idx
@@ -121,9 +150,9 @@ class Model(object) :
         self.W_size = self.label_num * self.label_num + self.emit_feature_num * self.label_num + self.label_num
         self.W = {} #! as sparse vector . A class may be more Nice . but dict is also enough
         self.W_sum = {} 
-        self.W_time = {} #! defalt vlaue is the init self.time_now  
+        self.W_time = [ self.time_now ] * self.W_size #! defalt vlaue is the init self.time_now  
 
-    def increase_time(self) :
+    def _increase_time(self) :
         self.time_now += 1
 
     def _get_emit_feature_idx(self , emit_feature) :
@@ -138,7 +167,7 @@ class Model(object) :
                 if f in self.emit_feature_space :
                     feature_idx.append(self.emit_feature_space[f])
             self.emit_feature_cache = emit_feature
-            self.emit_feature_cached_idx = emit_feature_idx
+            self.emit_feature_cached_idx = feature_idx
         return feature_idx
     
     def _get_instance_vector_idx_list_for_emit_feature(self , emit_feature_idx , label_idx) :
@@ -164,14 +193,14 @@ class Model(object) :
         build one term feature vector
         we haven't check the idx ! it may cause Error . but we ignore it currently .
         '''
-        instance_vector = self.get_instance_emit_vector_for_one_term(self , emit_feature , current_label )
-        instance_vector.update(self.get_instance_trans_vector_for_one_term(self , pre_label , current_label))
+        instance_vector = self.get_instance_emit_vector_for_one_term(emit_feature , current_label )
+        instance_vector.update(self.get_instance_trans_vector_for_one_term(pre_label , current_label))
         return instance_vector 
 
-    def phi(self , X , pre_y , y )
-    '''
-    Just for a nice API
-    '''
+    def phi(self , X , pre_y , y ) :
+        '''
+        Just for a nice API
+        '''
         return self.build_instance_vector_for_one_term(X , pre_y , y)
 
     def get_instance_emit_vector_for_one_term(self , emit_feature , label) :
@@ -192,7 +221,7 @@ class Model(object) :
         '''
         
         assert(isinstance(emit_vector , dict) and isinstance(trans_vector , dict))
-        emit_vector.udpate(trans_vector) 
+        emit_vector.update(trans_vector) 
         return emit_vector
 
     def get_label_num(self) :
@@ -200,10 +229,9 @@ class Model(object) :
 
     def get_current_weight_vector(self) :
         return self.W 
-            emit_feature = extractor.
     
     def trans_label2idx(self , label) :
-        if label == Model.BOS_LABEL_REP 
+        if label == Model.BOS_LABEL_REP : 
             return Model.BOS_LABEL_REP 
         else :
             return self.label_space[label]
