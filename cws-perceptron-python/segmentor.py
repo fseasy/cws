@@ -28,7 +28,7 @@ class Segmentor(object) :
         self.model = None
         self.decoder = None
 
-    def train(self,training_f,max_iter=None) :
+    def train(self,training_f,model_saving_f,max_iter=None) :
         self._set_max_iter(max_iter)
         self.raw_training_data = DatasetHandler.read_training_data(training_f)
         self._build_inner_lexicon(threshold=0.9)
@@ -37,9 +37,9 @@ class Segmentor(object) :
         self._build_constrain()
         self._build_decoder()
         self._build_training_model()
-        self._training_processing()
+        self._training_processing(model_saving_f)
 
-    def _training_processing(self) :
+    def _training_processing(self,model_saving_f) :
         '''
         Training
         '''
@@ -63,10 +63,11 @@ class Segmentor(object) :
                 if ( instance_id + 1 ) % processing_print_interval == 0 :
                     current_ite_percent = ( instance_id + 1 ) / processing_print_interval * 10 
                     logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_id + 1 ,
-                                  current_ite_percent , current_ite_percent / self.max_iter ))
+                                  current_ite_percent , current_ite_percent / self.max_iter +  float(ite) / self.max_iter * 100  ))
             logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_num ,
-                          100 , 100 / self.max_iter ))
+                          100 , float(ite+1) / self.max_iter * 100 ))
         logging.info("Training done.")
+        self.model.save(model_saving_f)
 
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :

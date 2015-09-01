@@ -18,15 +18,17 @@ logging.config.fileConfig("logging.conf")
 seg_logger = logging.getLogger('segmentor')
 seg_logger.error("Test segmentor logger")
 
-def main(training_f) :
+def main(training_f , model_saving_f) :
     segmentor = Segmentor()
-    segmentor.train(training_f)
+    segmentor.train(training_f , model_saving_f)
 
 if __name__ == "__main__" :
     argp = argparse.ArgumentParser(description="averaged structed perceptron")
     argp.add_argument("--training-file" , "-train" , help="training data set for segmentation" , type=argparse.FileType('r') , required=True)
+    argp.add_argument("--model-saving" , "-save" , help="training model saving path" , type=argparse.FileType('w') , required=True)
     args = argp.parse_args()
     
-    main(args.training_file)
+    main(args.training_file , args.model_saving)
 
     args.training_file.close()
+    args.model_saving.close()

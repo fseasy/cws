@@ -1,7 +1,12 @@
 #coding=utf-8
 
-import logging
+try :
+    import cPickle as pickle
+except :
+    import pickle
+import gzip
 
+import logging
 from symbols import DEBUG
 from tools import Tools
 
@@ -10,6 +15,8 @@ class Model(object) :
     def __init__(self) :
         self.emit_feature_space = None #! feature space and feature 2 feature idx translator. dict
         self.label_space = None #! label space and label to label idx translator . dict
+        ##!! previous 2 space structure should be saved when saving model 
+
         self.idx2emit_feature = None #! reverse index for emit feature . ONLY DEBUG NEEDED
         self.idx2label = None #! reverse index for label
 
@@ -20,12 +27,16 @@ class Model(object) :
         
         self.W = None   #! current weight vector
         self.W_sum = None  #! for average
-        self.W_time = None #! record timestamp
         self.W_size = 0
         self.time_now = 0
+        ##!! previous 4  W and relevant structure should be saved when saving model
+
+        self.W_time = None #! record timestamp
+        self.W_average = None #! average Weight
+        self.is_flushed = False  #! flag
         
         self.emit_feature_cache = None #! it is always one same emit feature and many different label , 
-                                       #! so we can make a cache to decrease time cost . But , it may count less .
+                                       #~ so we can make a cache to decrease time cost . But , it may count less .
         self.emit_feature_cached_idx = None 
 
     def init_empty_model(self) :
@@ -34,7 +45,7 @@ class Model(object) :
         if DEBUG :
             self.idx2emit_feature = []
         self.idx2label = []
-
+    
     def add_emit_feature_list2feature_space(self , features_list ) :
         '''
         add the emit feature to feature space
@@ -88,7 +99,20 @@ class Model(object) :
             self.W_sum[f_idx] = current_sum_value + keeping_time * current_value + update_value 
             #! update W_time
             self.W_time[f_idx] = self.time_now
-        
+        self.is_flushed = False
+    
+    
+    def _flush_time(self) :
+        for f_idx in range(self.W_size) :
+            last_update_time = self.W_time[f_idx]
+            keeping_time = self.time_now - last_update_time 
+            if f_idx in self.W :
+                w_keeping_value = self.W[f_idx]
+                previous_sum_value = self.W_sum[f_idx] if f_idx in self.W_sum else 0
+                self.W_sum[f_idx] = previous_sum_value + keeping_time * w_keeping_value
+            self.W_time[f_idx] = self.time_now
+        self.is_flushed = True
+    
     def _build_emit_feature_trans(self) :
         '''
         trans : (emit_feature/idx , label/idx ) -> instance feature idx (corresponding weight feature idx)
@@ -230,6 +254,18 @@ class Model(object) :
     def get_current_weight_vector(self) :
         return self.W 
     
+    def get_average_weight_vevtor(self) :
+        if not self.is_flushed :
+            #! flush and calculate
+            self._flush_time() #!! will set is_flushed flag true
+            self.W_average = {}
+            for k in self.W_sum :
+                value = self.W_sum[k]
+                if value == 0 : continue
+                avg_value = float(value) / self.time_now
+                self.W_average[k] = avg_value
+        return self.W_average
+        
     def trans_label2idx(self , label) :
         if label == Model.BOS_LABEL_REP : 
             return Model.BOS_LABEL_REP 
@@ -246,3 +282,58 @@ class Model(object) :
             logging.warning("Attempt to access self.idx2emit_feature . But DEBUG mode is closed !")
             logging.warning("'None' is returned")
             return "None"
+    
+    def save(self , fo):
+        zfo = gzip.GzipFile(fileobj=fo)
+        #! if we flush the model , and we can ignore the W_time and just using time_now to restore the W_time !!
+        #~ so we flush it !
+        if not self.is_flushed :
+            self._flush_time()
+        #! using a dict for more convenience when loading
+        saving_struct = {
+                    'emit_feature_space' : self.emit_feature_space ,
+                    'label_space'        : self.label_space  ,
+                    'w'                  : self.W ,
+                    'w_sum'              : self.W_sum ,
+                    'w_size'             : self.W_size ,
+                    'time_now'           : self.time_now
+                }
+        pickle.dump(saving_struct , zfo)
+        zfo.close() #! the fo is not closed by calling the GZipFile.close 
+        logging.info("saving model to '%s' done." %(fo.name))
+
+    def _init_loading_model_other_structure(self) :
+        self.emit_feature_num = len(self.emit_feature_space)
+        self.label_num = len(self.label_space)
+        if DEBUG :
+            #! idx2emit_feature . build reverse index
+            self.idx2emit_feature = [ "" ] * self.emit_feature_num
+            for feature in self.emit_feature_space :
+                idx = self.emit_feature_space[feature]
+                self.idx2emit_feature[idx] = feature
+        #! idx2label . build reverse index
+        self.idx2label = [ None ] * self.label_num
+        for label in self.label_space :
+            idx = self.label_space[label]
+            self.idx2label[idx] = label
+        #! emit_feature_trans , trans_feature_trans . 
+        self._build_emit_feature_trans()
+        self._build_trans_feature_trans()
+        #! W_time
+        self.W_time = [ self.time_now ] * self.W_size
+
+    def load(self , fi) :
+        zfi = gzip.GzipFile(fileobj=fi)
+        saving_struct = pickle.load(zfi)
+        zfi.close()
+        self.emit_feature_space = saving_struct['emit_feature_space']
+        self.label_space = saving_struct['label_space']
+        self.W = saving_struct['w']
+        self.W_sum = saving_struct['w_sum']
+        self.W_size = saving_struct['w_size']
+        self.time_now = saving_struct['time_now']
+        #! load done . 
+        #~ restoring all the other data structure
+        self._init_loading_model_other_structure()
+        logging.info("loading model from '%s' done ." %(fi.name))
+
