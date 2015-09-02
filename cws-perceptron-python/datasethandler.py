@@ -79,3 +79,35 @@ class DatasetHandler(object) :
             data_lines.append(atom_list)
         logging.info("%d lines read done ." %(len(data_lines)))
         return data_lines
+    
+    @staticmethod
+    def read_dev_data(df) :
+        '''
+        An Iteration generator for developing data
+        Args :
+            df : file , or a path str
+        Returns :
+            atom_list : [ [WSatom , ....] , ...  ] 
+        '''
+        if not isinstance(df , file) :
+            try :
+                df = open(df)
+            except IOError , e :
+                traceback.print_exc()
+                exit(1)
+        encoding = DatasetHandler.get_file_encoding(df)
+        WSAtom.set_encoding(encoding)
+        for line in df :
+            line = line.strip()
+            if len(line) == 0 :
+                continue
+            try :
+                uline = line.decode(encoding)
+            except UnicodeDecodeError , e :
+                logging.warning("decoding dataset error : %s " %(line))
+                continue
+            uline_parts = uline.split()
+            atom_list = []
+            for uline_part in uline_parts :
+                atom_list.append(WSAtomTranslator.trans_unicode_list2atom_gram_list(uline_part))
+            yield atom_list

@@ -1,3 +1,5 @@
 *.sublime-project
 *.pyc
 *.sublime-workspace
+.log
+log

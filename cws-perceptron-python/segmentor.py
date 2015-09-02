@@ -69,6 +69,18 @@ class Segmentor(object) :
         logging.info("Training done.")
         self.model.save(model_saving_f)
 
+    def _evaluate_processing(self , dev_path) :
+        try :
+            df = open(dev_path)
+        except IOError , e :
+            logging.error("Failed to load developing data from '%s'" %(dev_path))
+            logging.info("Exit")
+            exit(1)
+        for instance in DatasetHandler.read_dev_data(df) :
+            unigrams , tags = Segmentor._processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance)
+
+        df.close()
+
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :
             logging.warning("Max iteration number is not set or in valid state .")
@@ -179,12 +191,7 @@ class Segmentor(object) :
         self.training_unigrams_data = []
         self.training_tags_data = []
         for sentence in self.raw_training_data :
-            tags = []
-            unigram_line = []
-            for atom_ngram in sentence :
-                partial_tags = Segmentor.__innerfunc__word2tags(atom_ngram)
-                tags.extend(partial_tags)
-                unigram_line.extend(atom_ngram) # atom_ngram is the list of WSAtom. so WSAtom(unigram) is added .
+            unigram_line , tags = Segmentor._processing_one_segmented_WSAtom_instance2unigrams_and_tags(sentence)
             self.training_tags_data.append(tags)
             self.training_unigrams_data.append(unigram_line)
         if DEBUG :
@@ -195,6 +202,16 @@ class Segmentor(object) :
                          [WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_list).encode("utf8") 
                          for atom_list in self.raw_training_data[0]]))
     
+    @staticmethod
+    def _processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance) :
+        tags = []
+        unigram_line = []
+        for atom_ngram in instance :
+            partial_tags = Segmentor.__innerfunc__word2tags(atom_ngram)
+            tags.extend(partial_tags)
+            unigram_line.extend(atom_ngram) # atom_ngram is the list of WSAtom. so WSAtom(unigram) is added .
+        return unigram_line , tags
+
     @staticmethod
     def __innerfunc__word2tags(word) :
         wordlen = len(word)
