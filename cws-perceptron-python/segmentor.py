@@ -39,7 +39,7 @@ class Segmentor(object) :
         self._build_training_model()
         self._training_processing(model_saving_f)
 
-    def _training_processing(self,model_saving_f) :
+    def _training_processing(self,model_saving_f,dev_path) :
         '''
         Training
         '''
@@ -64,10 +64,11 @@ class Segmentor(object) :
                     current_ite_percent = ( instance_id + 1 ) / processing_print_interval * 10 
                     logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_id + 1 ,
                                   current_ite_percent , current_ite_percent / self.max_iter +  float(ite) / self.max_iter * 100  ))
-            logging.info("Ite %d : %d instance processed. (%d%% / %d%%)" %( ite + 1 , instance_num ,
-                          100 , float(ite+1) / self.max_iter * 100 ))
+            logging.info("Ite %d done . %d instance processed. (%d%%)" %( ite + 1 , instance_num ,
+                         float(ite+1) / self.max_iter * 100 ))
+            _evaluate_processing(dev_path)
         logging.info("Training done.")
-        self.model.save(model_saving_f)
+        self._saving(mdoel_saving_f)
 
     def _evaluate_processing(self , dev_path) :
         try :
@@ -78,8 +79,12 @@ class Segmentor(object) :
             exit(1)
         for instance in DatasetHandler.read_dev_data(df) :
             unigrams , tags = Segmentor._processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance)
-
+            predict_tags = Decoder.decode_for_predict(self.extractor , self.model , self.constrain , unigrams)
+            
         df.close()
+    
+    def _saving(self , f ) :
+        self.model.save(f)
 
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :
