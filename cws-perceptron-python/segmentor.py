@@ -1,10 +1,15 @@
 #coding=utf-8
-
+try :
+    import cPickle as pickle
+except :
+    import pickle
+import os
 import logging
+import gzip
 from collections import Counter
 
 from datasethandler import DatasetHandler
-from symbols import INF , NEG_INF , TAG_B , TAG_M , TAG_E , TAG_S , TAG_NAME_TRANS , DEBUG
+from symbols import INF , NEG_INF , TAG_B , TAG_M , TAG_E , TAG_S , TAG_NAME_TRANS , DEBUG , OUTPUT_SEPARATOR
 from wsatom_char import WSAtomTranslator
 from extractor import Extractor
 from model import Model
@@ -28,18 +33,25 @@ class Segmentor(object) :
         self.model = None
         self.decoder = None
 
-    def train(self,training_f,model_saving_f,max_iter=None) :
+    def train(self , training_path , dev_path , model_saving_path , max_iter=None) :
         self._set_max_iter(max_iter)
-        self.raw_training_data = DatasetHandler.read_training_data(training_f)
+        self.raw_training_data = DatasetHandler.read_training_data(training_path)
         self._build_inner_lexicon(threshold=0.9)
         self._processing_raw_training_data2unigrams_and_tags()
         self._build_extractor()
         self._build_constrain()
         self._build_decoder()
         self._build_training_model()
-        self._training_processing(model_saving_f)
+        self._training_processing( model_saving_path , dev_path)
 
-    def _training_processing(self,model_saving_f,dev_path) :
+    def predict(self , model_path , predict_path , output_path ) :
+        self._load(model_path) #inner lexicon , model
+        self._build_extractor()
+        self._build_constrain() #! an empty constrain
+        # self._build_decoder() #!! no need . We just use the Static Method of Decoder Class
+        self._predict_processing(predict_path , output_path)
+
+    def _training_processing(self , model_saving_path , dev_path) :
         '''
         Training
         '''
@@ -66,25 +78,127 @@ class Segmentor(object) :
                                   current_ite_percent , current_ite_percent / self.max_iter +  float(ite) / self.max_iter * 100  ))
             logging.info("Ite %d done . %d instance processed. (%d%%)" %( ite + 1 , instance_num ,
                          float(ite+1) / self.max_iter * 100 ))
-            _evaluate_processing(dev_path)
+            self._evaluate_processing(dev_path)
         logging.info("Training done.")
-        self._saving(mdoel_saving_f)
+        self._save(model_saving_path)
 
     def _evaluate_processing(self , dev_path) :
-        try :
-            df = open(dev_path)
-        except IOError , e :
-            logging.error("Failed to load developing data from '%s'" %(dev_path))
-            logging.info("Exit")
-            exit(1)
-        for instance in DatasetHandler.read_dev_data(df) :
-            unigrams , tags = Segmentor._processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance)
+        nr_processing_right = 0
+        nr_gold = 0
+        nr_processing = 0
+        for instance in DatasetHandler.read_dev_data(dev_path) :
+            unigrams , gold_tags = Segmentor._processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance)
             predict_tags = Decoder.decode_for_predict(self.extractor , self.model , self.constrain , unigrams)
-            
-        df.close()
+            gold_coor_seq = self.__innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(gold_tags)
+            predict_coor_seq = self.__innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(predict_tags)
+            cur_nr_gold , cur_nr_processing , cur_nr_processing_right = (
+                            self.__innerfunc_4evaluate_get_nr_gold_and_processing_and_processing_right(gold_coor_seq , predict_coor_seq)
+                    )
+            nr_gold += cur_nr_gold
+            nr_processing += cur_nr_processing
+            nr_processing_right += cur_nr_processing_right
+        p , r , f = self.__innerfunc_4evaluate_calculate_prf(nr_gold , nr_processing , nr_processing_right)
+        print "Eval result :\n p : %.2f%% r : %.2f%% f : %.2f%%\ntotal word num : %d total predict word num : %d predict right num : %d "%(
+                p * 100 , r * 100, f * 100 , nr_gold , nr_processing , nr_processing_right
+                )
     
-    def _saving(self , f ) :
-        self.model.save(f)
+    def __innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(self , tags) :
+        '''
+        generate coordinate sequence from tags 
+        => B M E S S              (tags)
+        => (0,2) , (3,3) , (4,4)  (generate coordinate sequence)
+        => (中国人）（棒）（棒）  (generate word sequence directly)
+        that means , every coordiante stands for a word in the origin word sequence .
+        do this , it [may be more convenient than genenrate word directly] from tags
+        '''
+        coor_seq = []
+        start_idx = 0
+        end_idx = 0
+        for i in range(len(tags)) :
+            tag = tags[i]
+            if tag == TAG_E or tag == TAG_S :
+                end_idx = i
+                coor = (start_idx , end_idx)
+                coor_seq.append(coor)
+                start_idx = end_idx + 1
+        return coor_seq
+
+    def __innerfunc_4evaluate_get_nr_gold_and_processing_and_processing_right(self , gold_coor_seq , predict_coor_seq) :
+        '''
+        get nr_gold , nr_processing , nr_processing_right
+        Args :
+            gold_coor_seq : list , [ (0,2) , (3 , 3) , (4 , 4) ]
+            predict_coor_seq : list , same as gold_coor_seq
+        Returns :
+            nr_gold , nr_processing , nr_processing_right : int
+        '''
+        nr_gold = len(gold_coor_seq)
+        nr_processing = len(predict_coor_seq)
+        i = j = 0
+        nr_processing_right = 0
+        while i < nr_gold and j < nr_processing :
+            gold_coor = gold_coor_seq[i]
+            processing_coor = predict_coor_seq[j]
+            #! first , align the word start
+            if gold_coor[0] < processing_coor[0] : 
+                #! gold is behind , ++i
+                i = i + 1
+                continue
+            elif gold_coor[0] > processing_coor[0] :
+                #! processing is behind , ++j
+                j = j + 1
+                continue
+            else :
+                #! aligned , is right ?
+                if gold_coor == processing_coor :
+                    nr_processing_right += 1
+                #! alwats ahead
+                i += 1
+                j += 1
+        return nr_gold , nr_processing , nr_processing_right
+
+    def __innerfunc_4evaluate_calculate_prf(self , nr_gold , nr_predict , nr_predict_right) :
+        '''
+        calculate precesion , recall , f_1-measure
+        '''
+        p = float(nr_predict_right) / nr_predict
+        r = float(nr_predict_right) / nr_gold
+        #f = 2 * p * r / (p + r) 
+        f = 2 * nr_predict_right / float(nr_gold + nr_predict_right)
+        return (p , r , f)
+    
+    def _predict_processing(self , predict_path , ouput_path) :
+        if isinstance(output_path , file) :
+            output_f = output_path 
+        else :
+            if  output_path == "sysout" :
+                output_f = sys.stdout
+            else :
+                output_f = open(output_path , "w")
+        for instance , separators_pos in DatasetHandler.read_predict_data(predict_path) :
+            self.constrain.set_constrain_data(separator_data)
+            predict_tags = Decoder.decode_for_predict(self.extractor , self.model , self.constrain , instance)
+            segmented_line = self._processing_unigrams_and_tags2segmented_line(instance,predict_tags)
+            output_f.write("%s" %( "".join(segmented_line , os.linesep) ) )
+        output_f.close()
+
+    def _save(self , fpath ) :
+        zfo = gzip.open(fpath , "wb")
+        #! saving inner lexicon
+        pickle.dump(self.inner_lexicon , zfo)
+        #! saving model parameter
+        self.model.save(zfo)
+        zfo.close() 
+        logging.info("saving model to '%s' done." %(fpath))
+
+    def _load(self , fpath) :
+        zfi = gzip.open(fpath , "rb")
+        #! load inner lexicon
+        self.inner_lexicon = pickle.load(zfi)
+        #! loading model parameter
+        self.model.loading(zfi)
+        zfi.close()
+        logging.info("loading model from '%s' done ." %(fpath))
 
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :
@@ -176,7 +290,28 @@ class Segmentor(object) :
                             freq_in_lexicon / float(total_freq) , len(lexicon_list) / float(len(words_counter)) )) 
                         )
         self.inner_lexicon =  dict.fromkeys(lexicon_list) #! to make it more efficient 
-    
+   
+    def _processing_unigrams_and_tags2segmented_line(self , unigrams , tags) :
+        '''
+        trans unigrams and tags to segmented word line
+        =>unigrams = [我 , 是 , 中 , 国 , 人] , tags = [S , S , B , E , S] => ret = 我 是 中国 人
+        Actually , unigrams is a list of WSAtom , function `str` can trans it to str which is encoded in origin encoding.
+        
+        Args :
+            unigrams : list , WSAtom list
+            tags :  list , TAGs
+        Returns :
+            line , str encoded . segmented .
+        '''
+        if len(unigrams) == 0 :
+            return "" #! An empty line is included !
+        line = []
+        for unigram , tag in zip(unigrams , tags) :
+            line.append(str(unigram))
+            if tag == TAG_E or tag == TAG_S :
+                line.append(OUTPUT_SEPARATOR)
+        return "".join(line[:-1]) #! the last will be a redundant OUTPUT_SEPARATOR char ( we assert that the last tag must be E or S )
+
     def _processing_raw_training_data2unigrams_and_tags(self) :
         '''
         from lines data(WSAtom wrapped )to trainning data(ws needed)
@@ -201,7 +336,7 @@ class Segmentor(object) :
             self.training_unigrams_data.append(unigram_line)
         if DEBUG :
             logger.debug("the 1st line : %s" %( u" ".join(
-                         [ atom.get_combined_unicode_list() for atom in self.training_unigrams_data[0]] ).encode('utf8') ))
+                         [ unicode(atom) for atom in self.training_unigrams_data[0]] ).encode('utf8') ))
             logger.debug("the 1st tag list : " + " ".join([ TAG_NAME_TRANS[tag] for tag in self.training_tags_data[0] ]))
             logger.debug("the 1st origin seg line : " + " ".join(
                          [WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_list).encode("utf8") 

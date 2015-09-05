@@ -27,22 +27,23 @@ class Extractor(object) :
         match_state = self.build_lexicon_match_state(instance)
         for pos in range(instance_len) :
             #! unigram word feature
-            W_cur = str(instance[pos])
-            W_pre2 = str(instance[pos-2]) if pos - 2 >= 0 else BOS
-            W_pre1 = str(instance[pos-1]) if pos - 1 >= 0 else BOS 
-            W_nxt1 = str(instance[pos+1]) if pos + 1 < instance_len else EOS 
-            W_nxt2 = str(instance[pos+2]) if pos + 2 < instance_len else EOS 
+            W_cur = unicode(instance[pos])
+            W_pre2 = unicode(instance[pos-2]) if pos - 2 >= 0 else BOS
+            W_pre1 = unicode(instance[pos-1]) if pos - 1 >= 0 else BOS 
+            W_nxt1 = unicode(instance[pos+1]) if pos + 1 < instance_len else EOS 
+            W_nxt2 = unicode(instance[pos+2]) if pos + 2 < instance_len else EOS 
             #! type feature
             T_cur = instance[pos].get_type_str()
             T_pre1 = instance[pos-1].get_type_str() if pos - 1 >= 0 else BOT
             T_nxt1 = instance[pos+1].get_type_str() if pos + 1 < instance_len else EOT
             #! lexicon feature
-            L_head = str(match_state[pos][0])
-            L_middle = str(match_state[pos][1])
-            L_end = str(match_state[pos][2])
+            L_head = unicode(match_state[pos][0])
+            L_middle = unicode(match_state[pos][1])
+            L_end = unicode(match_state[pos][2])
             
             ## end , pack it
-            f_list = [W_cur , W_pre2 , W_pre1 , W_nxt1 , W_nxt2 , T_cur , T_pre1 , T_nxt1 , L_head , L_middle , L_end ] # all are encoding str
+            f_list = [W_cur , W_pre2 , W_pre1 , W_nxt1 , W_nxt2 , T_cur , T_pre1 , T_nxt1 , L_head , L_middle , L_end ] # all are unicode
+            #! unicode can be adaptive for different outer encoding for one model
             cur_emit_feature = [ "=".join([ str(f_idx) , f_list[f_idx]]) for f_idx in range(len(f_list)) ]
             emit_features_list.append(cur_emit_feature)
         return emit_features_list

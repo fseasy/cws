@@ -11,16 +11,18 @@ TAG_NAME_TRANS={ TAG_B : "B" ,
 TAG_NUM = 4
 TAG_LIST = [TAG_B , TAG_M , TAG_E , TAG_S]
 
-BOS = "<s>"
-EOS = "</s>"
+BOS = u"<s>"
+EOS = u"</s>"
 
-BOT = "TYPE_BOS"
-EOT = "TYPE_EOT"
-ENG_TYPE = "TYPE_ENG"
+BOT = u"TYPE_BOS"
+EOT = u"TYPE_EOT"
+ENG_TYPE = u"TYPE_ENG"
 
 INF = float("inf")
 NEG_INF = float("-inf")
 
 LEXICON_MATCH_MAX_LENGTH = len(u"中华人民共和国")
+
+OUTPUT_SEPARATOR = " " 
 
 DEBUG = True

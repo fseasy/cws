@@ -34,7 +34,7 @@ class WSAtomTranslator(object) :
     def trans_atom_gram_list2unicode_list(atom_list) :
         unicode_list = []
         for atom in atom_list :
-            unicode_list.append(atom.get_combined_unicode_list())
+            unicode_list.append(unicode(atom))
         return unicode_list
     
     @staticmethod
@@ -48,7 +48,7 @@ class WSAtomTranslator(object) :
             unicode_list = WSAtomTranslator.trans_atom_gram_list2unicode_list(atom_list)
         elif isinstance(atom_list , WSAtom) :
             atom = atom_list
-            unicode_list = [ atom.get_combined_unicode_list() ]
+            unicode_list = [ unicode(atom) ]
         else :
             logging.error("Unkown Type for `atom list` ")
             unicode_list = [u"Unkonw Data Type"]
@@ -66,12 +66,11 @@ class WSAtom(object) :
         self.type = type_str
         self.unicode_str = u"".join(unicode_list)
         self.encoded_str = self.unicode_str.encode(WSAtom.str_encoding) 
-    
-    def get_combined_unicode_list(self) :
-        return self.unicode_str
-    
     def get_type_str(self) :
         return self.type
 
     def __str__(self) :
         return self.encoded_str
+
+    def __unicode__(self) :
+        return self.unicode_str

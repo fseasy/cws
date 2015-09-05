@@ -283,8 +283,7 @@ class Model(object) :
             logging.warning("'None' is returned")
             return "None"
     
-    def save(self , fo):
-        zfo = gzip.GzipFile(fileobj=fo)
+    def save(self , zfo):
         #! if we flush the model , and we can ignore the W_time and just using time_now to restore the W_time !!
         #~ so we flush it !
         if not self.is_flushed :
@@ -299,8 +298,6 @@ class Model(object) :
                     'time_now'           : self.time_now
                 }
         pickle.dump(saving_struct , zfo)
-        zfo.close() #! the fo is not closed by calling the GZipFile.close 
-        logging.info("saving model to '%s' done." %(fo.name))
 
     def _init_loading_model_other_structure(self) :
         self.emit_feature_num = len(self.emit_feature_space)
@@ -322,10 +319,8 @@ class Model(object) :
         #! W_time
         self.W_time = [ self.time_now ] * self.W_size
 
-    def load(self , fi) :
-        zfi = gzip.GzipFile(fileobj=fi)
+    def load(self , zfi) :
         saving_struct = pickle.load(zfi)
-        zfi.close()
         self.emit_feature_space = saving_struct['emit_feature_space']
         self.label_space = saving_struct['label_space']
         self.W = saving_struct['w']
@@ -335,5 +330,4 @@ class Model(object) :
         #! load done . 
         #~ restoring all the other data structure
         self._init_loading_model_other_structure()
-        logging.info("loading model from '%s' done ." %(fi.name))
 
