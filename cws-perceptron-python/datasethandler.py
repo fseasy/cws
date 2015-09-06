@@ -61,10 +61,10 @@ class DatasetHandler(object) :
         Returns :
             data_lines : lines of dataset , each line is also a list , every element is also a list !
                         the most inner element is WSAtom .
-                        => [ [ [ "like" , "我" , ... ] , ["一" , "样"] ,...  ] ]
+                        => [ [ [ WSAtom("like") , WSAtom("我") , ... ] , [WSAtom("一") , WSAtom("样")] ,...  ] ]
                         what is this ? -> the most inner list , is same as the N-grams of chars ! so as for every word , it is represented by
                                           a list of WSAtom . upper list is the sentence , the most outer is the list of sentence
-                        Why use WSAtom ? -> because we want a English word as a `single representation` instead of `list of letters` ! 
+                        Why use WSAtom ? -> because we want an English word to be a `single representation` instead of `list of letters` ! 
         '''
         logging.info("reading training data .")
         if type(tf) != file :
@@ -114,13 +114,14 @@ class DatasetHandler(object) :
         WSAtom.set_encoding(encoding)
         for line in df :
             line = line.strip()
-            if len(line) == 0 :
-                continue
+            #if len(line) == 0 : #! still handle it !
+            #    continue
             try :
                 uline = line.decode(encoding)
             except UnicodeDecodeError , e :
                 logging.warning("decoding dataset error : %s " %(line))
-                continue
+                #continue
+                uline = "" #! still handle it !
             uline_parts = uline.split()
             atom_list = []
             for uline_part in uline_parts :
@@ -169,7 +170,7 @@ class DatasetHandler(object) :
             separator_pos = []
             pos = 0
             part_num = len(atom_list)
-            for idx in range(atom_list) :
+            for idx in range(len(atom_list)) :
                 atoms = atom_list[idx]
                 pos += len(atoms)
                 atom_unigrams.extend(atoms)

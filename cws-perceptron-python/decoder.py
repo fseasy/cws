@@ -1,7 +1,7 @@
 #coding=utf-8
-
 from symbols import NEG_INF 
 from tools import Tools
+
 class Decoder(object) :
     def __init__(self) :
         self.instance_cached = None 
@@ -142,10 +142,14 @@ class Decoder(object) :
         back_path_mat = [ [ None ] * instance_len for n in range(label_num) ]
         #! for predict , w is the average weight .
         w = model.get_average_weight_vevtor()
-
+        
         emit_feature_list = extractor.extract_emit_features(instance)
         for pos in range(instance_len) :
             emit_feature = emit_feature_list[pos]
+            #!! DEBUGING
+            #f.write(str(emit_feature))
+            #f.write("\n")
+
             possible_labels = constrain.get_current_position_possible_labels(pos)
             for cur_label in possible_labels :
                 previous_possible_labels = constrain.get_possible_previous_label_at_current_label(pos , cur_label)
@@ -163,6 +167,7 @@ class Decoder(object) :
                         max_trans_score_cor_label_idx = pre_label_idx
                 # calculate emit score
                 emit_vector = model.get_instance_emit_vector_for_one_term(emit_feature , cur_label)
+
                 emit_score = Tools.sparse_vector_dot(emit_vector , w )
                 # record
                 score_mat[cur_label_idx][pos] = max_trans_score + emit_score #! Atention 
@@ -183,4 +188,5 @@ class Decoder(object) :
             #print "pos %d , char %s , label %s" %(i , instance[i] , max_score_cor_label_idx)
             predict_tags_list_r.append(model.trans_idx2label(max_score_cor_label_idx))
         predict_tags_list_r.reverse() #! reverse , in replace !
+
         return predict_tags_list_r #! in fact , it is not reverse any more

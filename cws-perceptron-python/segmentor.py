@@ -4,6 +4,7 @@ try :
 except :
     import pickle
 import os
+import sys
 import logging
 import gzip
 from collections import Counter
@@ -45,11 +46,40 @@ class Segmentor(object) :
         self._training_processing( model_saving_path , dev_path)
 
     def predict(self , model_path , predict_path , output_path ) :
-        self._load(model_path) #inner lexicon , model
+        self._build_inner_lexicon_and_predict_model_from_saving_path(model_path)
         self._build_extractor()
         self._build_constrain() #! an empty constrain
         # self._build_decoder() #!! no need . We just use the Static Method of Decoder Class
         self._predict_processing(predict_path , output_path)
+    
+    def evaluate(self , gold_path , predict_path) :
+        gold_ite = DatasetHandler.read_dev_data(gold_path)
+        predict_ite = DatasetHandler.read_dev_data(predict_path)
+        nr_processing = 0
+        nr_gold = 0
+        nr_processing_right = 0
+        nr_line = 0
+        while True :
+            try :
+                gold_instance = gold_ite.next()
+                predict_instance = predict_ite.next()
+            except StopIteration :
+                break
+            nr_line += 1
+            gold_unigrams , gold_tags = self._processing_one_segmented_WSAtom_instance2unigrams_and_tags(gold_instance)
+            predict_unigrams , predict_tags = self._processing_one_segmented_WSAtom_instance2unigrams_and_tags(predict_instance)
+            gold_coor_seq = self.__innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(gold_tags)
+            predict_coor_seq = self.__innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(predict_tags)
+            cur_nr_gold , cur_nr_processing , cur_nr_processing_right = (
+                    self.__innerfunc_4evaluate_get_nr_gold_and_processing_and_processing_right(gold_coor_seq , predict_coor_seq) )
+            nr_gold += cur_nr_gold
+            nr_processing += cur_nr_processing
+            nr_processing_right += cur_nr_processing_right
+        p , r , f = self.__innerfunc_4evaluate_calculate_prf(nr_gold , nr_processing , nr_processing_right)
+        print ("Eval result :\np : %.2f%% r : %.2f%% f : %.2f%%\n"
+              "line num : %d total word num : %d total predict word num : %d predict right num : %d ") %(
+                p * 100 , r * 100, f * 100 , nr_line , nr_gold , nr_processing , nr_processing_right
+                )
 
     def _training_processing(self , model_saving_path , dev_path) :
         '''
@@ -61,6 +91,9 @@ class Segmentor(object) :
             return
         instance_num = len(self.training_unigrams_data)
         processing_print_interval = instance_num / 10 
+        best_f = NEG_INF
+        best_ite = -1
+        best_model_data = None
         for ite in range(self.max_iter) :
             logging.info("training iteration %d ." %(ite + 1))
             for instance_id in range(instance_num) :
@@ -78,11 +111,18 @@ class Segmentor(object) :
                                   current_ite_percent , current_ite_percent / self.max_iter +  float(ite) / self.max_iter * 100  ))
             logging.info("Ite %d done . %d instance processed. (%d%%)" %( ite + 1 , instance_num ,
                          float(ite+1) / self.max_iter * 100 ))
-            self._evaluate_processing(dev_path)
+            f = self._4training_evaluate_processing(dev_path)
+            #! save temporary model if best
+            if f > best_f :
+                best_f = f 
+                best_ite = ite
+                best_model_data = self.model.get_current_saving_data()
+                logging.info("currently iteration %d get the best f1-score" %(ite + 1))
         logging.info("Training done.")
-        self._save(model_saving_path)
+        logging.info("saving model at iteration %d with has best f1-score %.2f%%" %( best_ite + 1 , best_f * 100))
+        self._save(model_saving_path , best_model_data )
 
-    def _evaluate_processing(self , dev_path) :
+    def _4training_evaluate_processing(self , dev_path) :
         nr_processing_right = 0
         nr_gold = 0
         nr_processing = 0
@@ -98,9 +138,11 @@ class Segmentor(object) :
             nr_processing += cur_nr_processing
             nr_processing_right += cur_nr_processing_right
         p , r , f = self.__innerfunc_4evaluate_calculate_prf(nr_gold , nr_processing , nr_processing_right)
-        print "Eval result :\n p : %.2f%% r : %.2f%% f : %.2f%%\ntotal word num : %d total predict word num : %d predict right num : %d "%(
+        print >>sys.stderr , ("Eval result :\np : %.2f%% r : %.2f%% f : %.2f%%\n"
+               "total word num : %d total predict word num : %d predict right num : %d ")%(
                 p * 100 , r * 100, f * 100 , nr_gold , nr_processing , nr_processing_right
                 )
+        return f
     
     def __innerfunc_4evaluate_generate_word_coordinate_sequence_from_tags(self , tags) :
         '''
@@ -167,38 +209,24 @@ class Segmentor(object) :
         f = 2 * nr_predict_right / float(nr_gold + nr_predict_right)
         return (p , r , f)
     
-    def _predict_processing(self , predict_path , ouput_path) :
+    def _predict_processing(self , predict_path , output_path) :
         if isinstance(output_path , file) :
             output_f = output_path 
         else :
-            if  output_path == "sysout" :
+            if  output_path == "stdout" :
                 output_f = sys.stdout
             else :
                 output_f = open(output_path , "w")
-        for instance , separators_pos in DatasetHandler.read_predict_data(predict_path) :
+        logging.info("set output %s " %(output_f.name))
+        logging.info("reading instance from %s . predicting ." %(predict_path))
+        for instance , separator_data in DatasetHandler.read_predict_data(predict_path) :
             self.constrain.set_constrain_data(separator_data)
             predict_tags = Decoder.decode_for_predict(self.extractor , self.model , self.constrain , instance)
             segmented_line = self._processing_unigrams_and_tags2segmented_line(instance,predict_tags)
-            output_f.write("%s" %( "".join(segmented_line , os.linesep) ) )
-        output_f.close()
-
-    def _save(self , fpath ) :
-        zfo = gzip.open(fpath , "wb")
-        #! saving inner lexicon
-        pickle.dump(self.inner_lexicon , zfo)
-        #! saving model parameter
-        self.model.save(zfo)
-        zfo.close() 
-        logging.info("saving model to '%s' done." %(fpath))
-
-    def _load(self , fpath) :
-        zfi = gzip.open(fpath , "rb")
-        #! load inner lexicon
-        self.inner_lexicon = pickle.load(zfi)
-        #! loading model parameter
-        self.model.loading(zfi)
-        zfi.close()
-        logging.info("loading model from '%s' done ." %(fpath))
+            output_f.write("%s" %( "".join([segmented_line , os.linesep]) ) )
+        if output_f is not sys.stdout :
+            output_f.close()
+        logging.info("predicting done.")
 
     def _set_max_iter(self , max_iter) :
         if max_iter is None or type(max_iter) is not int or max_iter < 1 :
@@ -216,7 +244,11 @@ class Segmentor(object) :
 
     def _build_decoder(self) :
         self.decoder = Decoder()
-
+    
+    def _build_inner_lexicon_and_predict_model_from_saving_path(self , model_path) :
+        self.model = Model()
+        self._load(model_path)
+        
     def _build_training_model(self) :
         '''
         init a empty model , build model emit feature space , build model label space , build model weight
@@ -344,6 +376,16 @@ class Segmentor(object) :
     
     @staticmethod
     def _processing_one_segmented_WSAtom_instance2unigrams_and_tags(instance) :
+        '''
+        from [ [ WSAtom , WSAtom , ...] , [ WSAtom , ... ] , ... ] to [ WSAtom , WSAtom , ... ] and [ TAG_X , TAG_X , ...  ]
+        Args :
+            instance : list of list , [ [ WSAtom , WSAtom , ... ]  , [ WSAtom , ...  ] , ... ]
+        Returns :
+            unigrams : list , [WSAtom , WSAtom , WSAtom , ... ]
+            tags     : list , [TAG_X , TA_X , TAG_X , ...]
+        Why Static Method ?
+            no specific meaning . just to using the staticmethod function
+        '''
         tags = []
         unigram_line = []
         for atom_ngram in instance :
@@ -365,3 +407,26 @@ class Segmentor(object) :
             tags.append(TAG_E)  
         return tags
 
+    def _save(self , fpath , best_model_data=None ) :
+        logging.info("saving model to '%s'." %(fpath))
+        zfo = gzip.open(fpath , "wb")
+        #! saving inner lexicon
+        pickle.dump(self.inner_lexicon , zfo)
+        #! saving model parameter
+        if best_model_data is None :
+            self.model.save(zfo)
+        else :
+            pickle.dump(best_model_data, zfo)
+        zfo.close()
+        logging.info("saving done.")
+
+    def _load(self , fpath) :
+        logging.info("loading model from '%s'" %(fpath))
+        zfi = gzip.open(fpath , "rb")
+        #! load inner lexicon
+        self.inner_lexicon = pickle.load(zfi)
+        #! loading model parameter
+        self.model.load(zfi)
+        zfi.close()
+        logging.info("loading done .")
+    

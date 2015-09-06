@@ -16,9 +16,6 @@ from datasethandler import DatasetHandler
 
 logging.config.fileConfig("logging.conf")
 
-seg_logger = logging.getLogger('segmentor')
-seg_logger.error("Test segmentor logger")
-
 def seg_train(args) :
     if not DatasetHandler.is_readable(args.training_file) :
         logging.error("path '%s' open failed !" %(args.training_file))
@@ -49,7 +46,19 @@ def seg_predict(args) :
         logging.error('Exit!')
         exit(1)
     segmentor = Segmentor()
-    segmentor.predict(args.predict_file , args.model_loading , args.output_path)
+    segmentor.predict(args.model_loading , args.predict_file , args.output_path)
+
+def seg_eval(args) :
+    if not (DatasetHandler.is_readable(args.gold_file)) :
+        logging.error("path '%s' open failed !" %(args.gold_file))
+        logging.error('Exit!')
+        exit(1)
+    if not DatasetHandler.is_readable( args.predict_file) :
+        logging.error("path '%s' open failed ! predict file open error ." %(args.predict_file))
+        logging.error("Exit!")
+        exit(1)
+    segmentor = Segmentor()
+    segmentor.evaluate(args.gold_file , args.predict_file)
 
 if __name__ == "__main__" :
     argp = argparse.ArgumentParser(description="averaged structured perceptron")
@@ -67,6 +76,11 @@ if __name__ == "__main__" :
     predict_argp.add_argument("--model-loading" , "-model" , help="model loading path" , type=str , required=True)
     predict_argp.add_argument("--output_path" , "-output" , help="output path[default : stdout]" , type=str , default="stdout") 
     predict_argp.set_defaults(func=seg_predict)
+    
+    eval_argp = sub_argps.add_parser('eval')
+    eval_argp.add_argument("--gold-file" , "-gold" , help="gold dataset for segmentation" , type=str , required=True)
+    eval_argp.add_argument("--predict-file" , "-predict" , help="predict dataset for segmentation" , type=str , required=True)
+    eval_argp.set_defaults(func=seg_eval)
 
     args = argp.parse_args()
     args.func(args)

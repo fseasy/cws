@@ -282,8 +282,7 @@ class Model(object) :
             logging.warning("Attempt to access self.idx2emit_feature . But DEBUG mode is closed !")
             logging.warning("'None' is returned")
             return "None"
-    
-    def save(self , zfo):
+    def get_current_saving_data(self) :
         #! if we flush the model , and we can ignore the W_time and just using time_now to restore the W_time !!
         #~ so we flush it !
         if not self.is_flushed :
@@ -297,6 +296,10 @@ class Model(object) :
                     'w_size'             : self.W_size ,
                     'time_now'           : self.time_now
                 }
+        return saving_struct
+
+    def save(self , zfo):
+        saving_struct = self.get_current_saving_data()
         pickle.dump(saving_struct , zfo)
 
     def _init_loading_model_other_structure(self) :
@@ -330,4 +333,25 @@ class Model(object) :
         #! load done . 
         #~ restoring all the other data structure
         self._init_loading_model_other_structure()
-
+    
+    def __str__(self) :
+        line = []
+        line.append("emit feature space :")
+        line.append(str(self.emit_feature_num))
+        line.append(str(self.emit_feature_space))
+        line.append("label space :")
+        line.append(str(self.label_num))
+        line.append(str(self.label_space))
+        line.append("emit feature trans :")
+        line.append(str(self.emit_feature_trans))
+        line.append("trans feature trans :")
+        line.append(str(self.trans_feature_trans))
+        line.append("weight :")
+        line.append(str(self.W))
+        line.append("weight size:")
+        line.append(str(self.W_size))
+        line.append("weight sum :")
+        line.append(str(self.W_sum))
+        line.append("time now")
+        line.append(str(self.time_now))
+        return "\n".join(line)
