@@ -69,7 +69,7 @@
 
 这几天主要完成了训练模块中的对开发集的预测功能，预测模块，评价模块。当然这些东西之间都有一些交集。
 
-具体的子模块，主要包含**分词的效果评测** ， 模型保存加载 。
+具体的子模块，主要包含**分词的效果评测** ， 模型保存加载 , 参数解析模块。
 
 **分词效果评测**
 
@@ -118,7 +118,43 @@ PS：上述说了一堆，依然感觉说的不清晰。或许这并不是一个
 
 首先，由于Extractor需要从训练集中抽取的lexicon，故需要把lexicon保存起来。
 
-其次，就是保存模型Model的一些参数。包含Emit Feature Space ， 就是从训练集中抽的特征（其实是字典，保存了特征到Emit Feature索引的映射，故实际保存了更多的信息），保存了space ， 可以通过length操作获得特征的数量，故数量不必保存。其次是Label Space ，与Emit Feature Space同理。 
+其次，就是保存模型Model的一些参数。包含Emit Feature Space ， 就是从训练集中抽的特征（其实是字典，保存了特征到Emit Feature索引的映射，故实际保存了更多的信息），保存了space ， 可以通过length操作获得特征的数量，故数量不必保存。其次是Label Space ，与Emit Feature Space同理。有了这个Space，就能构造（特征，标签）到特征向量的下标转换矩阵了，故转换矩阵不必保存（当然，其实转换矩阵本身就不是必须的，仅仅只是为了cache起来避免重复运算。不过时间效率是否有提升其实是未知的，因为增加了矩阵寻址时间。而且空间开销大大增加了。所以这个转换不一定是OK的。需要具体测试）。其次保存权值Weight相关的信息，当前的W肯定需要保存，W_sum也需要，W_size需要存起来（因为W都是稀疏矩阵，当然，size也完全可以根据space大小计算出来。故不是必须的，但这里还是直接存起来了）。W_time不需要存起来，因为最后保存之前，都做了flush操作，所有时间都是time_now ， 故需要保存time_now， 这样就能完全重建W_time .由此权值相关的信息也可以在加载时恢复了。 
+
+保存采用了pickle + gzip的方式。具体使用方法是：
+
+        import gzip
+        import pickle (cPickle)
+        
+        # save
+        zfo = gzip.open("path/to/model" , "wb" )
+        pickle.dump(*** , zfo)
+
+        #load
+        zfi = gzip.open("path/to/model" , "rb")
+        *** = pickle.load(zfi)
+
+**参数解析**
+
+argparse模块非常强大。
+
+由于需要同时处理train , predict , evaluate ，故开始考虑的是分组参数。后来看到argparse支持子parser，且支持绑定对应函数，实在巧妙。
+
+不过只写过这么一次，记不太清楚，这里把代码拷贝过来一点。
+        
+        argp = argparse.ArgumentParser(description="averaged structured perceptron")
+        #! 先构建 子parser组~
+        sub_argps = argp.add_subparsers(title="model train" , description="From training dataset to train an averaged structured perceptron model")
+        #! 子parser之前也可以为主parser添加参数，这些参数是所有子parser共有的。
+        #! 由刚刚构建的子parser组再来构建子parser
+        train_argp = sub_argps.add_parser("train")
+        train_argp.add_argument("--training-file" , "-train" , help="training dataset for segmentation" , type=str, required=True)
+        ...
+        #! 设置默认执行的函数
+        train_argp.set_defaults(func=seg_train)
+        
+        args = argp.parse_args()
+        #! 高级!!这里很巧妙的调用。前面保存了函数指针，这里直接函数指针+参数体。有各自函数在内部自己处理需要的参数，非常好的思想。
+        args.func(args)
 
 
 ####20150831
