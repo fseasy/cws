@@ -206,7 +206,7 @@ class Segmentor(object) :
         p = float(nr_predict_right) / nr_predict
         r = float(nr_predict_right) / nr_gold
         #f = 2 * p * r / (p + r) 
-        f = 2 * nr_predict_right / float(nr_gold + nr_predict_right)
+        f = 2 * nr_predict_right / float(nr_gold + nr_predict)
         return (p , r , f)
     
     def _predict_processing(self , predict_path , output_path) :
