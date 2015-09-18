@@ -91,6 +91,8 @@ class Segmentor(object) :
             return
         instance_num = len(self.training_unigrams_data)
         processing_print_interval = instance_num / 10 
+        if processing_print_interval == 0 :
+            processing_print_interval = 1 
         best_f = NEG_INF
         best_ite = -1
         best_model_data = None
@@ -317,7 +319,7 @@ class Segmentor(object) :
             logger.debug("origin words count : " + str(len(words_counter)))
             logger.debug("lexicon count : " + str(len(lexicon_list)))
             logger.debug( ("thredhold num is %d , actually total freqency in lexicon is %d(total frequency of all words : %d ),"
-                           "minimun frequency in lexicon is %d , frequency ratio is %.2f%% , word count ratio is %.2f%%" %( 
+                           "minimun frequency in lexicon is %s , frequency ratio is %.2f%% , word count ratio is %.2f%%" %( 
                             threshold_num , freq_in_lexicon , total_freq , min_freq , 
                             freq_in_lexicon / float(total_freq) , len(lexicon_list) / float(len(words_counter)) )) 
                         )

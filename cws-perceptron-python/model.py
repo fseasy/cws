@@ -291,8 +291,8 @@ class Model(object) :
         saving_struct = {
                     'emit_feature_space' : self.emit_feature_space ,
                     'label_space'        : self.label_space  ,
-                    'w'                  : self.W ,
-                    'w_sum'              : self.W_sum ,
+                    'w'                  : Tools.clear_zero_value(self.W) ,
+                    'w_sum'              : Tools.clear_zero_value(self.W_sum) ,
                     'w_size'             : self.W_size ,
                     'time_now'           : self.time_now
                 }

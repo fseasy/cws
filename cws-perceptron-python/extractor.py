@@ -41,7 +41,7 @@ class Extractor(object) :
             W_b_6 = u"+".join([W_pre1 , W_nxt1])
             W_b_7 = u"+".join([W_cur , W_nxt2])
             #! trigram 
-            W_t_1 = u"+".join([W_pre1 , W_cur , W_nxt1])
+            #~ W_t_1 = u"+".join([W_pre1 , W_cur , W_nxt1])
             #! type feature
             T_cur = instance[pos].get_type_str()
             T_pre1 = instance[pos-1].get_type_str() if pos - 1 >= 0 else BOT
@@ -54,7 +54,7 @@ class Extractor(object) :
             ## end , pack it
             f_list = [W_cur , W_pre2 , W_pre1 , W_nxt1 , W_nxt2 ,
                       W_b_1 , W_b_2 , W_b_3 , W_b_4 , W_b_5 , W_b_6 , W_b_7 ,
-                      W_t_1 ,
+                      # W_t_1 ,
                       T_cur , T_pre1 , T_nxt1 , 
                       L_head , L_middle , L_end ] # all are unicode
             #! unicode can be adaptive for different outer encoding for one model

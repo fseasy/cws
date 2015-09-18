@@ -32,7 +32,6 @@ class Decoder(object) :
         instance_vector_mat = [ [ None ] * instance_len for n in range(label_num)]
         #! for one instance , w keep unchange . and for train , w is the current w , that is , the latest weight
         w = model.get_current_weight_vector()
-
         emit_feature_list = extractor.extract_emit_features(instance)
         for pos in range(instance_len) :
             emit_feature = emit_feature_list[pos]

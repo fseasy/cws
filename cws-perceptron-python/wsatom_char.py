@@ -68,7 +68,10 @@ class WSAtom(object) :
         self.encoded_str = self.unicode_str.encode(WSAtom.str_encoding) 
     def get_type_str(self) :
         return self.type
-
+    
+    def __repr__(self) :
+        return self.encoded_str
+    
     def __str__(self) :
         return self.encoded_str
 

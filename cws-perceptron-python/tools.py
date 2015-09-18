@@ -53,20 +53,33 @@ class Tools(object) :
         for v in args :
             assert(isinstance(v , dict))
             rst.update(v)
-        return dict(rst)
+        return Tools.clear_zero_value(dict(rst))
     
+    @staticmethod
     def spase_vector_add_in_place(augend_v , addend_v) :
         keys = list(set(augend_v.keys() + addend_v.keys()))
         for k in keys :
             k_in_augend = k in augend_v
             k_in_addend = k in addend_v
             if k_in_augend and k_in_addend :
-                augend_v[k] += addend_v[k]
-            elif not k_in_augend and k_in_addend :
+                added_value = augend_v[k] + addend_v[k]
+                if added_value == 0 : 
+                    del augend_v[k]
+                else :
+                    augend_v[k] = added_value
+            elif (not k_in_augend)  and k_in_addend :
                 augend_v[k] = addend_v[k]
     
     @staticmethod
     def sparse_vector_sub( minuend_v , subtrahend_v) :
         rst = Counter(minuend_v)
         rst.subtract(subtrahend_v)
-        return dict(rst)
+        return Tools.clear_zero_value(dict(rst))
+
+    @staticmethod
+    def clear_zero_value(d) :
+        keys = d.keys()
+        for k in keys :
+            if d[k] == 0 :
+                del d[k]
+        return d
