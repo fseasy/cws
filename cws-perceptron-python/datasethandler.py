@@ -66,13 +66,13 @@ class DatasetHandler(object) :
                                           a list of WSAtom . upper list is the sentence , the most outer is the list of sentence
                         Why use WSAtom ? -> because we want an English word to be a `single representation` instead of `list of letters` ! 
         '''
-        logging.info("reading training data .")
         if type(tf) != file :
             try :
                 tf = open(tf)
             except IOError , e :
                 traceback.print_exc()
                 exit(1)
+        logging.info("reading training data from '%s'" %(tf.name))
         data_lines = []
         encoding = DatasetHandler.get_file_encoding(tf)
         WSAtom.set_encoding(encoding)

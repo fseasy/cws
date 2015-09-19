@@ -1,9 +1,11 @@
 #coding=utf-8
 
+import sys
 import unicodedata
 from symbols import BOT , EOT , BOS , EOS , LEXICON_MATCH_MAX_LENGTH  
 from tools import Tools
 from wsatom_char import WSAtomTranslator
+
 class Extractor(object) :
     
     def __init__(self,lexicon) :
@@ -37,9 +39,9 @@ class Extractor(object) :
             W_b_2 = u"+".join([W_pre1 , W_cur])
             W_b_3 = u"+".join([W_cur , W_nxt1])
             W_b_4 = u"+".join([W_nxt1 , W_nxt2])
-            W_b_5 = u"+".join([W_pre2 , W_cur])
-            W_b_6 = u"+".join([W_pre1 , W_nxt1])
-            W_b_7 = u"+".join([W_cur , W_nxt2])
+            ##W_b_5 = u"+".join([W_pre2 , W_cur])
+            ##W_b_6 = u"+".join([W_pre1 , W_nxt1])
+            ##W_b_7 = u"+".join([W_cur , W_nxt2])
             #! trigram 
             #~ W_t_1 = u"+".join([W_pre1 , W_cur , W_nxt1])
             #! type feature
@@ -52,14 +54,19 @@ class Extractor(object) :
             L_end = unicode(match_state[pos][2])
             
             ## end , pack it
-            f_list = [W_cur , W_pre2 , W_pre1 , W_nxt1 , W_nxt2 ,
-                      W_b_1 , W_b_2 , W_b_3 , W_b_4 , W_b_5 , W_b_6 , W_b_7 ,
+            f_list = [W_pre2 , W_pre1 , W_cur ,  W_nxt1 , W_nxt2 ,
+                      W_b_1 , W_b_2 , W_b_3 , W_b_4 , 
                       # W_t_1 ,
-                      T_cur , T_pre1 , T_nxt1 , 
+                      T_pre1 , T_cur , T_nxt1 , 
                       L_head , L_middle , L_end ] # all are unicode
             #! unicode can be adaptive for different outer encoding for one model
             cur_emit_feature = [ "=".join([ str(f_idx) , f_list[f_idx]]) for f_idx in range(len(f_list)) ]
             emit_features_list.append(cur_emit_feature)
+            ###
+            #for f in cur_emit_feature :
+            #    print >> sys.stderr , f.encode('utf-8')
+            #print >> sys.stderr , "\n"
+            ###
         return emit_features_list
 
     def build_lexicon_match_state(self , instance) :

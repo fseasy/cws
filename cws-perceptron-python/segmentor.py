@@ -282,8 +282,9 @@ class Segmentor(object) :
             return
         words_counter = Counter()
         for raw_instance in self.raw_training_data :
+            #! len > 1 to ensure it is a lexicon
             unicode_instance = [ WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_instance_gram_list) 
-                                 for atom_instance_gram_list in raw_instance ]
+                                 for atom_instance_gram_list in raw_instance if len(atom_instance_gram_list) > 1 ]
             words_counter.update(unicode_instance)
         total_freq = sum(words_counter.viewvalues())
         lexicon_list = []
@@ -291,6 +292,7 @@ class Segmentor(object) :
             ##! a fast and clearly implementation is using Counter.most_common(N) to return the threshold number words . 
             ##! but it clearly will cause some words  were added to lexicon dict while some ohter words with the same freq is cut off at tail . it is bad.
             ##! So do following logic to keep fair .
+            ##! strategy changed ! the threshold freq is also accepted (orginal , we reject words with the edge frequnce )! 
             threshold_num = int( total_freq * threshold )
             pre_freq = INF
             words_has_same_freq = []
@@ -300,10 +302,12 @@ class Segmentor(object) :
                     lexicon_list.extend(words_has_same_freq)
                     words_has_same_freq = []
                     pre_freq = freq
+                    if freq_counter > threshold_num :
+                        break
                 words_has_same_freq.append(word)
                 freq_counter += freq
-                if freq_counter > threshold_num :
-                    break
+            else :
+                lexicon_list.extend(words_has_same_freq) #! if it is because all word is iterated , we should apend it !
         else :
             lexicon_list = words_counter.keys()
         logging.info( "inner lexicon info : %d/%d" %( len(lexicon_list) , len(words_counter) )  )
