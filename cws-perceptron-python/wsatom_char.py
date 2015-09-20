@@ -4,6 +4,8 @@ import logging
 from tools import Tools
 from symbols import ENG_TYPE
 
+TYPES = []
+
 class WSAtomTranslator(object) :
     @staticmethod
     def trans_unicode_list2atom_gram_list(unicode_list) :
@@ -20,6 +22,10 @@ class WSAtomTranslator(object) :
                     type_str = ENG_TYPE
                 else :
                     type_str = Tools.get_unichr_type(atom_unicode_list[0])
+                #if type_str not in TYPES :
+                #    TYPES.append(type_str)
+                #    print type_str
+                #    print WSAtomTranslator.trans_atom_gram_list2unicode_line(atom_unicode_list).encode("utf-8")
                 atom_list.append(WSAtom(atom_unicode_list , type_str))
                 atom_unicode_list = []
             idx += 1

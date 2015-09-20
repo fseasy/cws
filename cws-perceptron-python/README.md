@@ -61,7 +61,35 @@
 
 ## Devlopment Log
 
-####20150913
+####20150920
+
+接上次进度，看了LTPCWS中关于type的实现。具体到LTPCWS的代码，就是read_instance中的preprocessor中的部分。
+
+这部分之前没有认真的看，这次算是较为细致耐心的看了一下：
+
+1. 有forms和raw_forms这两个数据结构来存储原始词, chartypes存储类型信息
+
+    raw_forms当然存储原始的词信息，而forms则存储预处理的信息。
+
+    详细的说：这里完成了读入一个训练实例（包含空格），然后
+        
+        1. 预处理一遍训练实例，其中的URI、SPECIAL_TOKEN 、ENGLISH 打上对应标记，其余字符（包括空格）打上NONE标记
+
+        2. 根据标记切分
+
+            1. 在有URI、SPECIAL_TOKEN 、ENGLISH标记的区间进行merge，这段字符放入raw_forms中，将标记(__uri__ , __eng__ , __eng__)放入forms中，将类别(CHAR_URI , CHAR_ENG)放入chartypes , 并将`左边的type`加上当前的类型信息，当前的type加上`左边类别的信息`,记录当前的类型信息到`左边的类别信息`
+        
+            2. 根据空格以及UTF8编码切分普通UTF8字符；如果是空格，为`左边类型`加上`右边是空格`的信息；如果是非空格，根据UTF编码开头区间，确定该字符的UTF8编码占用几个字节，然后把这段字符放入raw_forms中，将空白字符`""`放入forms中。同样加上相应的类型信息
+
+2. 类型似乎不止包含当前字符信息，还包含左边、右边的信息
+
+    由1中的处理流程可知，LTPCWS将右边类型信息、右边类型信息，通过位运算放入到当前的类型信息中了。
+
+    还没有看后续代码，不知道这个信息是是否用于特征抽取了，还是为了单纯为了后续的一些处理。
+
+    明天找时间继续看。
+
+####20150913-20150920
 
 在《自然语言处理》课程给的人民日报语料上评测，结果与LTPCWS对比，如下：
 
@@ -71,6 +99,7 @@
 |self  | 4/5          |87.75|87.75|87.75| 5.55  |
 |sekf+bigram+trigram| 5/5| 89.62 | 89.31 | 89.46 | 3.84 |
 |self+bigram+FIX_LEXICON| 5/5| 91.15 | 91.36 | 91.26 | 2.04 |
+| ... + FIX_TYPE_1 | 5/5 | 91.44 |91.82 | 91.63 | 1.67 |
 
 ~~F_1值差5.55个点。差距还是比较大的，而原因，注定又将成为一个悬念。~~
 
@@ -114,7 +143,26 @@ update @20150919 : 决心一步一步找问题，这次力求跟LTP保持尽可�
 
 3. 修改Type特征
 
+        Lo : Letter , Other
+        Pd : Punctuation , Dash
+        Ps : Punctuation , Open
+        Nd : Number , Decimal Digit
+        Pe : Punctuation , Close
+        Po : Punctuation , Other
+        Pi : Punctuation , Initial quote
+        Pf : Punctuation , Final quote
+        So : Symbol , Other
+        TYPE_ENG : LU and LI
+        Sm : Symbol , Math
+        Nl : Number , Letter
+        No : Number , Other
     
+    这次只返回category的第一个字母 ( L , P , N , S , TYPE_ENG  )，表示大类别，结果见表格`... + FIX_TYPE_1`
+    
+    效果提升了。其实，本次做了10轮迭代，且在第10轮是达到了最大F值，为91.84 ， 表格中列出5次是为了公平比较。
+    
+    第10次取得最大值，这似乎说明，模型可能还没有拟合训练集。TYPE也许还可以简化。需要再去细致看下LTPCWS的实现。
+ 
 ####20150906
 
 前几天接连有9.3胜利日阅兵，9.4-9.5实验室15周年庆祝活动。时间不是很多，或者没写代码，或者只写了代码没写文档。

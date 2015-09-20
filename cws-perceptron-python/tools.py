@@ -25,7 +25,7 @@ class Tools(object) :
     
     @staticmethod
     def get_unichr_type(unichr_val) :
-        return Tools.get_unichr_category(unichr_val)
+        return Tools.get_unichr_category(unichr_val)[0]
 
     @staticmethod
     def sparse_vector_dot(v1 , v2) :
